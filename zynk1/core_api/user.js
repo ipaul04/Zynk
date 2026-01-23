@@ -22,12 +22,14 @@ function find_user_by_email(email) {
 }
 
 /**
- * Registers a new user with their public key and email.
+ * Registers a new user with their public key, email, name, and role.
  * @param {string} pub_key_hex The user's public key as a hex string.
  * @param {string} email The user's email.
+ * @param {string} name The user's full name (optional).
+ * @param {string} role The user's role - 'student' or 'professor' (optional).
  * @returns {object} The registered user object.
  */
-function register_user(pub_key_hex, email) {
+function register_user(pub_key_hex, email, name = null, role = 'student') {
     if (find_user_by_email(email)) {
         throw new Error(`User with email ${email} already exists.`);
     }
@@ -37,11 +39,13 @@ function register_user(pub_key_hex, email) {
     const user = {
         id: users.length + 1,
         email: email,
+        name: name || email.split('@')[0],
+        role: role || 'student',
         pub_key: pub_key_hex,
         registered_at: new Date().toISOString()
     };
     users.push(user);
-    console.log(`User registered with email ${email} and public key: ${pub_key_hex}`);
+    console.log(`User registered: ${user.name} (${email}) as ${user.role}`);
     return user;
 }
 

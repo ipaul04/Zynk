@@ -15,27 +15,27 @@ app.use(express.json());
 app.use(cors());
 
 app.post('/register_zk', async (req, res) => {
-    const { pub_key, proof, email } = req.body;
+    const { pub_key, proof, email, name, role } = req.body;
 
     if (!pub_key || !proof || !email) {
-        return res.status(400).send('Email, public key, and proof are required');
+        return res.status(400).json({ message: 'Email, public key, and proof are required' });
     }
 
     try {
         const is_valid = verify_proof(pub_key, proof);
 
         if (is_valid) {
-            const user = register_user(pub_key, email);
-            res.status(201).send({ message: 'User registered successfully', user });
+            const user = register_user(pub_key, email, name, role);
+            res.status(201).json({ message: 'User registered successfully', user });
         } else {
-            res.status(401).send('Invalid proof. Registration failed.');
+            res.status(401).json({ message: 'Invalid proof. Registration failed.' });
         }
     } catch (err) {
         if (err.message.includes('already exists')) {
-            return res.status(409).send({ message: err.message });
+            return res.status(409).json({ message: err.message });
         }
         console.error('Error during registration:', err);
-        res.status(500).send('Internal Server Error');
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
@@ -43,7 +43,7 @@ app.post('/login_zk', async (req, res) => {
     const { pub_key, proof } = req.body;
 
     if (!pub_key || !proof) {
-        return res.status(400).send('Public key and proof are required');
+        return res.status(400).json({ message: 'Public key and proof are required' });
     }
 
     try {
@@ -52,16 +52,16 @@ app.post('/login_zk', async (req, res) => {
         if (is_valid) {
             const user = find_user_by_pub_key(pub_key);
             if (user) {
-                res.status(200).send({ message: 'Login successful', user });
+                res.status(200).json({ message: 'Login successful', user });
             } else {
-                res.status(401).send('Proof is valid, but user is not registered.');
+                res.status(401).json({ message: 'Proof is valid, but user is not registered.' });
             }
         } else {
-            res.status(401).send('Invalid proof. Login failed.');
+            res.status(401).json({ message: 'Invalid proof. Login failed.' });
         }
     } catch (err) {
         console.error('Error verifying proof:', err);
-        res.status(500).send('Internal Server Error');
+        res.status(500).json({ message: 'Internal Server Error' });
     }
 });
 
