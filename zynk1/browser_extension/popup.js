@@ -1,14 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     const accountList = document.getElementById('accountList');
 
-    // Get all users from the background script and display them
-    chrome.runtime.sendMessage({ action: "getAllUsers" }, (response) => {
-        if (response.success && response.users) {
-            const users = response.users;
-            const emails = Object.keys(users);
-
-            accountList.innerHTML = ''; // Clear the "Loading..." text
-
+    function renderUsers(response) {
+        if (chrome.runtime.lastError) {
+            accountList.innerHTML = '<li>Error loading accounts.</li>';
+            return;
+        }
+        if (response && response.success && response.users) {
+            const emails = Object.keys(response.users);
+            accountList.innerHTML = '';
             if (emails.length === 0) {
                 accountList.innerHTML = '<li>No accounts registered yet.</li>';
             } else {
@@ -21,5 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             accountList.innerHTML = '<li>Error loading accounts.</li>';
         }
-    });
+    }
+
+    chrome.runtime.sendMessage({ action: "getAllUsers" }, renderUsers);
 });

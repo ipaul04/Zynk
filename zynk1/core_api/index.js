@@ -2,8 +2,6 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import * as snarkjs from 'snarkjs';
-import fs from 'fs';
 const app = express();
 const port = 3000;
 import { pool, get_user, insert_user, update_user, delete_user } from './db_ops.js';
@@ -71,6 +69,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/users/:id', async (req, res) => {
+    if (!pool) return res.status(503).json({ message: 'Database not configured' });
     const userId = req.params.id;
     let connection;
     try {
@@ -90,6 +89,7 @@ app.get('/users/:id', async (req, res) => {
 });
 
 app.post('/users', async (req, res) => {
+    if (!pool) return res.status(503).json({ message: 'Database not configured' });
     const { uid, uname, role_id, encrypted_key } = req.body;
     if (!uid || !uname || !role_id || !encrypted_key) {
         return res.status(400).send('Missing required user data');
@@ -109,6 +109,7 @@ app.post('/users', async (req, res) => {
 });
 
 app.put('/users/:id', async (req, res) => {
+    if (!pool) return res.status(503).json({ message: 'Database not configured' });
     const userId = req.params.id;
     const updates = req.body;
 
@@ -138,6 +139,10 @@ app.post('/login', async (req, res) => {
 
     let connection;
     try {
+        const [snarkjs, { default: fs }] = await Promise.all([
+            import('snarkjs'),
+            import('fs')
+        ]);
         const vkey = JSON.parse(fs.readFileSync("circuits/verification_key.json"));
         const isValid = await snarkjs.groth16.verify(vkey, publicSignals, proof);
 
@@ -164,6 +169,7 @@ app.post('/login', async (req, res) => {
 });
 
 app.delete('/users/:id', async (req, res) => {
+    if (!pool) return res.status(503).json({ message: 'Database not configured' });
     const userId = req.params.id;
 
     let connection;

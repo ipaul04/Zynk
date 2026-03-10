@@ -1,0 +1,41 @@
+{
+  "name": "zync",
+  "version": "1.0.0",
+  "description": "Zync - ZK-powered authentication platform",
+  "type": "module",
+  "scripts": {
+    "prestart": "lsof -ti :3000 | xargs kill -9 2>/dev/null; lsof -ti :3001 | xargs kill -9 2>/dev/null; lsof -ti :3002 | xargs kill -9 2>/dev/null; true",
+    "start": "concurrently --names \"API,WEBAPP,EXTENSION\" --prefix-colors \"cyan,green,yellow\" \"npm run start:api\" \"npm run start:webapp\" \"npm run start:extension\"",
+    "start:api": "node core_api/index.js",
+    "start:webapp": "node serve_static.js webapp 3001",
+    "start:extension": "node serve_static.js browser_extension 3002",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --testPathPattern=core_api"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/core_api/**/*.test.js",
+      "**/core_api/**/*.spec.js"
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
+    "circomlib": "^2.0.5",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.15.3",
+    "snarkjs": "^0.7.5"
+  },
+  "devDependencies": {
+    "circomlibjs": "^0.1.7",
+    "concurrently": "^9.0.0",
+    "jest": "^30.2.0",
+    "serve": "^14.0.0"
+  }
+}

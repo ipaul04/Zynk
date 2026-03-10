@@ -4,21 +4,24 @@ import assert from 'assert';
 import 'dotenv/config';
 
 // Create a connection pool
-let pool;
-try {
-    pool = mysql.createPool({
-        host: process.env.DB_HOST,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_DATABASE,
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0
-    });
-    console.log("Database pool created successfully.");
-} catch (error) {
-    console.error("Failed to create database pool:", error);
-    process.exit(1);
+let pool = null;
+if (process.env.DB_HOST && process.env.DB_USER && process.env.DB_DATABASE) {
+    try {
+        pool = mysql.createPool({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_DATABASE,
+            waitForConnections: true,
+            connectionLimit: 10,
+            queueLimit: 0
+        });
+        console.log("Database pool created successfully.");
+    } catch (error) {
+        console.error("Failed to create database pool:", error);
+    }
+} else {
+    console.warn("DB env vars not set — database routes disabled, ZK auth routes still active.");
 }
 
 
