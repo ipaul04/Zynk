@@ -3,14 +3,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderUsers(response) {
         if (chrome.runtime.lastError) {
-            accountList.innerHTML = '<li>Error loading accounts.</li>';
+            accountList.innerHTML = '<div class="empty-state">Error loading accounts.</div>';
             return;
         }
         if (response && response.success && response.users) {
             const emails = Object.keys(response.users);
             accountList.innerHTML = '';
             if (emails.length === 0) {
-                accountList.innerHTML = '<li>No accounts registered yet.</li>';
+                accountList.innerHTML = '<div class="empty-state">No accounts registered yet.</div>';
             } else {
                 emails.forEach(email => {
                     const li = document.createElement('li');
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         } else {
-            accountList.innerHTML = '<li>Error loading accounts.</li>';
+            accountList.innerHTML = '<div class="empty-state">Error loading accounts.</div>';
         }
     }
 

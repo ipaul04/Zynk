@@ -3,11 +3,25 @@
   "version": "1.0.0",
   "description": "Zync - ZK-powered authentication platform",
   "type": "module",
+  "config": {
+    "webappDir": "webapp",
+    "authDir": "core_api/auth",
+    "auth_methods": {
+      "browser_extension": true,
+      "authentication_app": true
+    },
+    "roles": [
+      "Student",
+      "Professor",
+      "Advisor",
+      "Administrator"
+    ]
+  },
   "scripts": {
     "prestart": "lsof -ti :3000 | xargs kill -9 2>/dev/null; lsof -ti :3001 | xargs kill -9 2>/dev/null; lsof -ti :3002 | xargs kill -9 2>/dev/null; true",
     "start": "concurrently --names \"API,WEBAPP,EXTENSION\" --prefix-colors \"cyan,green,yellow\" \"npm run start:api\" \"npm run start:webapp\" \"npm run start:extension\"",
     "start:api": "node core_api/index.js",
-    "start:webapp": "node serve_static.js webapp 3001",
+    "start:webapp": "node serve_static.js $npm_package_config_webappDir 3001",
     "start:extension": "node serve_static.js browser_extension 3002",
     "test": "node --experimental-vm-modules node_modules/.bin/jest --testPathPattern=core_api"
   },

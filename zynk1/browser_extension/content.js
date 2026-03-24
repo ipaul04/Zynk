@@ -1125,66 +1125,94 @@ var ed25519 = /* @__PURE__ */ ed({});
 function create_random_key() { return ed25519.utils.randomSecretKey(); }
 function create_pub_key(secret_key) { return ed25519.getPublicKey(secret_key); }
 function generate_proof(secret_key, pub_key) {
-  const signature = ed25519.sign(pub_key, secret_key);
-  const r = signature.slice(0, 32), s = signature.slice(32, 64);
-  return { r: bytesToHex(r), s: bytesToHex(s) };
+  try {
+    const signature = ed25519.sign(pub_key, secret_key);
+    const r = signature.slice(0, 32), s = signature.slice(32, 64);
+    return { r: bytesToHex(r), s: bytesToHex(s) };
+  } catch (e) {
+    console.error("Error generating ZK proof:", e);
+    throw e;
+  }
+}
+
+function hexToUint8Array(hex) {
+    if (!hex || typeof hex !== 'string') return new Uint8Array(0);
+    const pairs = hex.match(/.{1,2}/g);
+    if (!pairs) return new Uint8Array(0);
+    return new Uint8Array(pairs.map(b => parseInt(b, 16)));
 }
 
 // --- Content Script: handles ZYNK1_REGISTER and ZYNK1_LOGIN directly ---
 console.log("Zynk1 Authenticator content script injected.");
 
 window.addEventListener("message", (event) => {
+    // Only accept messages from ourselves
     if (event.source !== window || !event.data.type) return;
 
     const { type, email } = event.data;
 
     if (type === "ZYNK1_REGISTER") {
+        console.log("Zynk1: Registration request received for", email);
         if (!email) {
             window.postMessage({ type: "ZYNK1_REGISTER_RESPONSE", success: false, error: "Email is required." }, "*");
             return;
         }
         chrome.storage.local.get('users', (data) => {
-            const users = data.users || {};
+            try {
+                const users = data.users || {};
 
-            if (users[email]) {
-                // User already exists — generate a fresh proof and return
-                const existing = users[email];
-                const secret_key = new Uint8Array(existing.secret_key.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                const pub_key = new Uint8Array(existing.pub_key.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+                if (users[email]) {
+                    console.log("Zynk1: User already exists, generating proof...");
+                    const existing = users[email];
+                    const secret_key = hexToUint8Array(existing.secret_key);
+                    const pub_key = hexToUint8Array(existing.pub_key);
+                    const proof = generate_proof(secret_key, pub_key);
+                    window.postMessage({ type: "ZYNK1_REGISTER_RESPONSE", success: true, pub_key: existing.pub_key, proof, email, alreadyExists: true }, "*");
+                    return;
+                }
+
+                console.log("Zynk1: Generating new keys...");
+                const secret_key = create_random_key();
+                const pub_key = create_pub_key(secret_key);
                 const proof = generate_proof(secret_key, pub_key);
-                window.postMessage({ type: "ZYNK1_REGISTER_RESPONSE", success: true, pub_key: existing.pub_key, proof, email, alreadyExists: true }, "*");
-                return;
+                const secret_key_hex = bytesToHex(secret_key);
+                const pub_key_hex = bytesToHex(pub_key);
+
+                users[email] = { secret_key: secret_key_hex, pub_key: pub_key_hex };
+                chrome.storage.local.set({ users }, () => {
+                    console.log(`Zynk1: Keypair generated and stored for ${email}`);
+                    window.postMessage({ type: "ZYNK1_REGISTER_RESPONSE", success: true, pub_key: pub_key_hex, proof, email, alreadyExists: false }, "*");
+                });
+            } catch (err) {
+                console.error("Zynk1: Registration error:", err);
+                window.postMessage({ type: "ZYNK1_REGISTER_RESPONSE", success: false, error: err.message }, "*");
             }
-
-            // New user — generate keypair, store, and return proof
-            const secret_key = create_random_key();
-            const pub_key = create_pub_key(secret_key);
-            const proof = generate_proof(secret_key, pub_key);
-            const secret_key_hex = bytesToHex(secret_key);
-            const pub_key_hex = bytesToHex(pub_key);
-
-            users[email] = { secret_key: secret_key_hex, pub_key: pub_key_hex };
-            chrome.storage.local.set({ users }, () => {
-                console.log(`Zynk1: keypair generated and stored for ${email}`);
-                window.postMessage({ type: "ZYNK1_REGISTER_RESPONSE", success: true, pub_key: pub_key_hex, proof, email, alreadyExists: false }, "*");
-            });
         });
 
     } else if (type === "ZYNK1_LOGIN") {
+        console.log("Zynk1: Login request received for", email);
         if (!email) {
             window.postMessage({ type: "ZYNK1_LOGIN_RESPONSE", success: false, error: "Email is required." }, "*");
             return;
         }
         chrome.storage.local.get('users', (data) => {
-            const user = data.users ? data.users[email] : null;
-            if (user && user.secret_key && user.pub_key) {
-                const secret_key = new Uint8Array(user.secret_key.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                const pub_key = new Uint8Array(user.pub_key.match(/.{1,2}/g).map(b => parseInt(b, 16)));
-                const proof = generate_proof(secret_key, pub_key);
-                window.postMessage({ type: "ZYNK1_LOGIN_RESPONSE", success: true, proof, pub_key: user.pub_key, email }, "*");
-            } else {
-                window.postMessage({ type: "ZYNK1_LOGIN_RESPONSE", success: false, error: "No account found for this email. Please register first." }, "*");
+            try {
+                const user = data.users ? data.users[email] : null;
+                if (user && user.secret_key && user.pub_key) {
+                    console.log("Zynk1: Found user, generating login proof...");
+                    const secret_key = hexToUint8Array(user.secret_key);
+                    const pub_key = hexToUint8Array(user.pub_key);
+                    const proof = generate_proof(secret_key, pub_key);
+                    window.postMessage({ type: "ZYNK1_LOGIN_RESPONSE", success: true, proof, pub_key: user.pub_key, email }, "*");
+                } else {
+                    console.warn("Zynk1: No account found for email:", email);
+                    window.postMessage({ type: "ZYNK1_LOGIN_RESPONSE", success: false, error: "No account found for this email. Please register first." }, "*");
+                }
+            } catch (err) {
+                console.error("Zynk1: Login error:", err);
+                window.postMessage({ type: "ZYNK1_LOGIN_RESPONSE", success: false, error: err.message }, "*");
             }
         });
     }
 }, false);
+window.postMessage({ type: "ZYNK1_EXTENSION_READY" }, "*");

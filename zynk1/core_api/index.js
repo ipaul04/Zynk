@@ -2,15 +2,40 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const port = 3000;
 import { pool, get_user, insert_user, update_user, delete_user } from './db_ops.js';
 import { verify_proof } from './zk.js';
 import { register_user, find_user_by_pub_key, find_user_by_email } from './user.js';
 
-app.use(express.json());
+// Simple in-memory token store for demonstration
+const validTokens = new Map();
 
+app.use(express.json());
 app.use(cors());
+
+// Serve static auth files
+app.use('/auth', express.static(path.join(__dirname, 'auth')));
+
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'auth', 'index.html'));
+});
+
+app.get('/config', (req, res) => {
+    try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+        res.json(pkg.config || {});
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to read config' });
+    }
+});
 
 app.post('/register_zk', async (req, res) => {
     const { pub_key, proof, email, name, role } = req.body;
@@ -24,7 +49,9 @@ app.post('/register_zk', async (req, res) => {
 
         if (is_valid) {
             const user = register_user(pub_key, email, name, role);
-            res.status(201).json({ message: 'User registered successfully', user });
+            const token = Math.random().toString(36).substring(7);
+            validTokens.set(token, user);
+            res.status(201).json({ message: 'User registered successfully', user, token });
         } else {
             res.status(401).json({ message: 'Invalid proof. Registration failed.' });
         }
@@ -50,7 +77,9 @@ app.post('/login_zk', async (req, res) => {
         if (is_valid) {
             const user = find_user_by_pub_key(pub_key);
             if (user) {
-                res.status(200).json({ message: 'Login successful', user });
+                const token = Math.random().toString(36).substring(7);
+                validTokens.set(token, user);
+                res.status(200).json({ message: 'Login successful', user, token });
             } else {
                 res.status(401).json({ message: 'Proof is valid, but user is not registered.' });
             }
@@ -63,9 +92,17 @@ app.post('/login_zk', async (req, res) => {
     }
 });
 
+app.get('/verify_token', (req, res) => {
+    const token = req.query.token;
+    if (validTokens.has(token)) {
+        res.json({ valid: true, user: validTokens.get(token) });
+    } else {
+        res.status(401).json({ valid: false });
+    }
+});
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.redirect('/login');
 });
 
 app.get('/users/:id', async (req, res) => {
